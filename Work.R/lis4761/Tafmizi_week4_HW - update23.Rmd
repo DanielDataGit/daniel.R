@@ -1,0 +1,331 @@
+---
+title: 'Week 4: HW - MapData (Visualizing Median Income on a Map) '
+author: '[Daniel Tafmizi]'
+date: '[September 22, 2024]'
+output: html_document
+---
+
+---
+
+# Instructions
+
+Use the dataset named "MedianZIP.xlsx" that has median income by zip code (an excel file).  
+Read the `MedianZIP.xlsx`, use the proper function, and save it as `mydata`. 
+Save the .xlsx file in this project's data folder.
+
+---
+
+
+# Step 1 - Load the Data
+
+## Step 1.1 - Read the data 
+
+Install the readxl and tidyverse package and load them. 
+Read the `MedianZIP.xlsx`, use the proper function, and save it as `mydata`. 
+If you need other packages for this lab, you may need to install them too. 
+Try what works. There are so many ways to do this.
+
+```{r, "Step 1.1"}
+# Write your code below.
+library(readxl)
+#install.packages("tidyverse")
+library(tidyverse)
+
+
+path <- "C:\\Users\\dtafm\\OneDrive\\Desktop\\data.science\\R\\Work.R\\lis4761\\Week4\\MedianZIP.xlsx"
+
+mydata <- as.data.frame(read_excel(path))
+```
+
+## Step 1.2 - Clean the data 
+
+Clean up the dataframe if needed and make sure the column names are `zip`, `median`, 
+`mean`, `population`. Make sure the values in each column are "numeric". 
+If they are factors or characters, you must change them to quantitative data.
+
+```{r, "Step 1.2"}
+# Write your code below.
+# already clean
+
+mydata[!complete.cases(mydata), ]
+
+#some mean values missing, will remove ltr if necessary
+
+```
+
+## Step 1.3 - Load library and data
+
+1. Load the `zipcode` package (install the `zipcode` package first, which is an archived package).
+The zipcode package can be installed by doing the following. Alternatively, you can use more recent 'zipcodeR' package instead.
+
+```
+#install.packages("remotes")
+library(remotes)
+#install_version("zipcode")
+library(zipcode)
+```
+
+2. Use `data(zipcode)` to load a dataframe that contains `city`, `state`, 
+`latitude`, and `longitude` for US zip codes.
+3. Double-check your environment to find the `zipcode` dataframe with five variables 
+and 44336 rows.
+
+```{r, "Step 1.3"}
+# Write your code below.
+#install.packages("remotes")
+library(remotes)
+#install_version("zipcode")
+library(zipcode)
+
+SC <- data("zipcode")
+
+
+```
+
+## Step 1.4 - Merge the data
+
+Merge the zipcode information from the two dataframes (merge into one dataframe). 
+
+1. First, clean up and standardize the zipcodes in `mydata` using the `clean.zipcodes()`
+function, and save the values to the `zip` column of `mydata`.
+2. Merge `mydata` and `zipcode` by the common column `zip` and store the new 
+dataframe as `dfNew`.
+3. use the `merge()` function for this.
+
+```{r, "Step 1.4"}
+# Write your code below.
+
+mydata$Zip <- clean.zipcodes(mydata$Zip)
+
+
+dfnew <- merge(mydata, zipcode,  by.x = "Zip", by.y = "zip")
+```
+
+## Step 1.5 - Clean the data again
+
+Remove Hawaii and Alaska (just focus on the “lower 48” states). 
+**HINT**: You can use the `which()` function we learned from Intro to Data Science 
+or you can use dplyr to filter the proper rows (use of course the `filter()` function 
+in the dplyr package).
+
+- After removing the two states, you should have 32321 rows in your new dataframe. 
+(`mydata` has 32634 rows in it.) 
+
+```{r, "Step 1.5"}
+# Write your code below.
+
+dfnew <- dfnew[-which(dfnew$state == "AK" | dfnew$state == "HI"), ]
+
+```
+
+---
+
+# Step 2 - Show the income and population per state
+
+## Step 2.1 - Create a simpler dataframe
+
+Create a simpler dataframe (call it `dfSimple`), with just the average median income 
+and the population for each state.
+
+- There are many ways to do this. But the simplest way is by using dplyr. 
+Use `group_by()` and `summarize()` from "dplyr" to do this.
+- The new dataframe should look like this:
+
+![Step 2.1 Environment](data/week4hw1.PNG)
+
+```{r, "Step 2.1"}
+# Write your code below.
+dfSimple <- dfnew %>%
+  group_by(state) %>%
+  summarize(
+    Median <- mean(Median), 
+    Pop <- mean(Pop)
+  )
+
+
+```
+
+## Step 2.2 - Update columns
+
+Add the state abbreviations and the state names as new columns 
+(make sure the state names are all lower case).
+
+1. Get the state name (not just the abbreviations). 
+Use the built-in `state.name` and `state.abb` datasets. 
+This is the code: 
+``dfSimple$stateName <- state.name[match(dfSimple$state, state.abb)]``
+2. Convert `stateName` to lowercase and save the values in the `stateName` column.
+
+```{r, "Step 2.2"}
+# Write your code below.
+dfSimple$stateName <- state.name[match(dfSimple$state, state.abb)]
+
+dfnew$stateName <- state.name[match(dfnew$state, state.abb)]
+
+dfSimple$stateName <- tolower(dfSimple$stateName)
+
+dfnew$stateName <- tolower(dfnew$stateName)
+```
+
+## Step 2.3 - Visualize the US (pt1)
+
+Show the U.S. map, using color to represent the average median income of each state.
+
+1. Get the data on the state to be mapped. 
+Use `map_data()` function to read `"state"` object and save the result as `us`.
+2. Use `dfSimple` to create a map and set `stateName` as `map_id`.
+(follow the course content practice, written in the textbook and in the video). 
+
+It should look like this (please do not forget to add the title of the map):
+
+![Step 2.3 Map](data/week4hw2.PNG)
+
+```{r, "Step 2.3"}
+# Write your code below.
+us <- map_data("state")
+
+ggplot(dfSimple, aes(map_id = stateName)) +
+  geom_map(map = us, color = "black", aes(fill = `Median <- mean(Median)`))+
+  expand_limits(x = us$long, y = us$lat) +
+  ggtitle("median income by state")
+   
+
+
+```
+
+## Step 2.4 - Visualize the US (pt2)
+
+Create a second map with color representing the population of the state.
+It should look like this:
+
+![Step 2.4 Map](data/week4hw3.PNG)
+
+```{r, "Step 2.4"}
+# Write your code below.
+ggplot(dfSimple, aes(map_id = stateName)) +
+  geom_map(map = us, color = "black", aes(fill = `Pop <- mean(Pop)`))+
+  expand_limits(x = us$long, y = us$lat) +
+  ggtitle(" Population by State")
+   
+
+
+
+```
+
+---
+
+# Step 3 - Show the income per zip code
+
+Draw each zipcode on the map, where the color of the “dot” is based on the median income. 
+To make the map look appealing, set the background of the map to black.
+
+- Use `dfNew` to create a map and set `stateName` as the map ID
+- Set the background color to black and line color to white
+- Change the limits of the x and y axes to print the whole map (`expand_limits`)
+- Plot points on map, where each "dot" represents a zipcode and the color of the
+"dots" is based on median income (`geom_point`, use `color` attribute using `Median` value).
+
+The graph should look like this:
+
+![Step 3 Map](data/week4hw4.PNG)
+
+```{r, "Step 3"}
+# Write your code below.
+ggplot(dfnew, aes(map_id = stateName)) +
+  geom_map(map = us, fill = "black", color = "white") +  # 
+  geom_point(aes(x = longitude, y = latitude, color = Median), size = 1) +
+  expand_limits(x = us$long, y = us$lat) +
+  ggtitle("Income by Zipcode")
+
+
+```
+
+---
+
+# Step 4 - Show zip code density
+
+Now generate a different map, one where we can easily see where there are lots of 
+zipcodes and where there are few (using the `stat_density2d()` function). 
+We will name this as `mapD`.
+
+It should look like this: 
+
+![Step 4 Map](data/week4hw5.PNG)
+
+```{r, "Step 4"}
+# Write your code below.
+dfnew <- na.omit(dfnew)
+
+mapD <- ggplot(dfnew, aes(x = longitude, y = latitude, map_id = stateName))+
+   geom_map(map = us, fill = "black", color = "white") +
+  geom_point(aes(x = longitude, y = latitude, color = Median), size = 1) +
+ stat_density2d(bins = 150) +
+  expand_limits(x = us$long, y = us$lat) +
+  ggtitle("Zipcode Density")
+
+print(mapD)
+```
+
+---
+
+# Step 5 - Zoom in to the region around Tampa
+
+Repeat steps 3 and 4, but have the image/map of the Tampa Bay area. 
+
+Below I am giving out the code for this:
+
+```
+# Before using geocode function, you must create Google API key. Follow directions in this url:
+https://setcompass.com/How-to-Get-Google-Maps-API-Key-Guide.htm
+# Google map requires your credit card information to avoid excessive use of Google resources.It will not charge you money as long as you use this to do this homework. It does not use a lot of calls. 
+
+#### please delete your key information before submitting the compiled file. You can either compile as a docx file and delete this line, or use other software to hide the key information. 
+
+# use geocode function to get latitude and longtitude of Tampa
+latlon <- geocode("Tampa, fl")
+
+# create the first zoomed map based on "mapZip", and plot a point representing Tampa
+mapZipZoomed <- mapZip + geom_point(aes(x = latlon$lon, y = latlon$lat), color="darkred", size = 3)
+
+# zoom into the region arount Tampa with 10 degrees latitude and longtitude fluctuation (+/- 10)
+mapZipZoomed <- mapZipZoomed + xlim(latlon$lon-10, latlon$lon+10) + ylim(latlon$lat-10,latlon$lat+10) + coord_map()
+
+# plot the map
+mapZipZoomed
+
+```
+
+```{r, "Step 5"}
+# Write your code below.
+#install.packages("ggmap")
+library(ggmap)
+
+register_google(key = "", write = TRUE) 
+
+latlon <- geocode("Tampa, fl")
+
+dffl <- na.omit(dfnew[dfnew$state == "FL",])
+
+mapZip <- ggplot(dffl, aes(x = longitude, y = latitude, map_id = stateName)) +
+  geom_map(map = us, color = "black")+
+  expand_limits(x = us$long, y = us$lat) +
+  ggtitle("Tampa, FL")
+
+mapZipZoomed <- mapZip +
+  geom_point(aes(x = latlon$lon, y = latlon$lat), color="darkred", size = 3)
+
+mapZipZoomed <- mapZipZoomed + xlim(latlon$lon-6, latlon$lon+6) + ylim(latlon$lat-6,latlon$lat+6) + coord_map()
+
+x <- mapZipZoomed +
+  geom_point(aes(x = longitude, y = latitude, color = Median), size = 2, alpha = .75)+
+  ggtitle("Median income by zipcode in Florida")
+  
+
+
+x +
+  stat_density2d(bins = 10)+
+  expand_limits(x = us$long, y = us$lat)
+
+
+
+```

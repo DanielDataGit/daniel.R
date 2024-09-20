@@ -1,0 +1,237 @@
+---
+title: 'Week 3: HW - Visualizing Air Quality Analysis'
+author: '[Daniel Tafmizi]'
+date: '[9/15/2024]'
+output: html_document
+---
+#getwd()
+#setwd("C://Users//dtafm//OneDrive//Desktop//data.science//R//Work.R//lis4761")
+---
+
+# Instructions
+
+Use the built-in `airquality` R dataset to visualize the air quality in 1973.
+Explore the patterns in the data by creating histograms, boxplots, line graphs, 
+heatmaps, and scatterplots. 
+
+Load the libraries `ggplot2` and `reshape2` in the setup chunk below.
+
+---
+
+```{r setup, message = FALSE}
+# Add your library below.
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("reshape2")
+library(reshape2)
+#install.packages("mice")
+library(mice)
+```
+
+# Step 1 - Load the Data
+
+We will use the `airquality` dataset that you have as part of your R installation. 
+Read the `airquality` data using the `data.frame()` function and save it as `air`.
+
+```{r, "Step 1"}
+# Write your code below.
+air <- data.frame(airquality)
+
+
+```
+
+---
+
+# Step 2 - Clean the Data
+
+After you load the data, there will be some NA values in the data. 
+You need to figure out what to do about those nasty NAs. Google is your friend. 
+Use Google actively to find a way to get rid of NAs using R. 
+
+**HINT:** Find columns that include NA values first 
+(use `colSums()` function, then replace NAs with the mean value of these columns).
+
+Optional: If you want to implement a better approaches to deal with missing data, 
+"multiple imputation" would be where you should go.   
+You can check sources like:
+
+ - https://gking.harvard.edu/amelia
+ - http://cran.revolutionanalytics.com/web/packages/mitools/index.html
+
+```{r, "Step 2"}
+# Write your code below.
+which(is.na(air), arr.ind=TRUE)
+#columns 1 and 2 have na's
+imputed_data <- mice(air, m = 5, method = 'cart')
+air <- complete(imputed_data)
+```
+
+---
+
+
+# Step 3 - Understand the data distribution
+
+Create the following visualizations:
+
+ - Histograms for each of the variables
+ - Boxplot for `Ozone`, and boxplots for different `wind` values 
+ (round `wind` to get a good number of “buckets”) 
+ 
+**HINT:** you can create one graph with `Ozone` as X-axis and `Wind` as Y-axis. 
+Also, you can create two graphs (one with `Ozone` values on the Y-axis, and 
+another one with Y-axis value is rounded value of `Wind`). In this case, you need 
+to create a fake grouping variable `(x = factor(0))`.
+
+```{r, "Step 3"}
+# Write your code below.
+for (col in names(air)){
+  print(ggplot(air, aes_string(x=col))+
+    geom_histogram()
+  )
+}
+
+print(ggplot(air, aes(x = factor(0), y = round(Wind)))+
+    geom_boxplot())
+
+print(ggplot(air, aes(x = factor(0), y = Ozone))+
+    geom_boxplot()+
+    scale_y_continuous(breaks = seq(0, 150, by = 15)))
+
+print(ggplot(air, aes(x = Ozone, y = Wind,  group = round(Wind)))+
+    geom_boxplot())
+
+```
+
+---
+
+# Step 4 - Explore how the data changes over time
+
+First, create the appropriate dates (this data was from 1973). 
+Then create line charts for `Ozone`, `Temp`, `Wind` and `Solar.R` 
+(one line chart for each, and then one chart with 4 lines, each variable having a different color). 
+
+**HINT:** 
+
+1. Combine (use `paste()` function) 1973 with the `Month` and `Day` columns,
+using "/" in between
+2. Use `as.Date()` function to transform the value to "Date" format and create 
+a `Date` column to record this value. Use `?as.Date` to find example use of this function.
+
+Note that for the chart with 4 lines, you need to think about how to effectively use the y-axis. 
+
+**HINT:** 
+You need to "melt" the columns so that it becomes "long" format. You can either 
+use the `melt()` function or use the `gather()` from the "tidyr" package for the process. 
+Also, compared to other values, the `Wind` values are too small, 
+so they are close to the x-axis. You need to multiply `Wind` by 10 to address this problem. 
+
+The correct result should look like this:
+![Step 4 Line Graph](data/week3hw1.PNG)
+
+```{r, "Step 4"}
+# Write your code below.
+air$Date <- as.Date(paste("1973", air$Month, air$Day, sep = "/"), format = "%Y/%m/%d")
+
+columns <- c("Ozone", "Solar.R", "Wind", "Temp")
+
+for (col in columns){
+  print(ggplot(air, aes_string(x = air$Date, y = col))+
+    geom_line()
+  )
+}
+
+air$scaledWind <- air$Wind * 10
+
+meltedAir <- melt(air, id.vars = "Date", measure.vars = c("Ozone", "Solar.R", "scaledWind", "Temp"))
+
+print(ggplot(meltedAir, aes(x=Date, y=value, color=variable)) +
+  geom_line() +
+  ggtitle("Ozone, Temp, Wind, Solar.R Levels") +
+  xlab("Date") + ylab("Values") +
+  scale_color_manual(values = c("red", "lightblue", "darkgreen", "purple"))
+)
+```
+ 
+
+# Step 5: Look at all the data via a heatmap
+
+Create a heatmap, with each day (using dates) along the x-axis and 
+`Ozone`, `Temp`, `Wind` and `Solar.r` along the y-axis.
+
+Note that you need to figure out how to show the relative change equally across 
+all the variables. 
+
+**HINTS:** 
+- You may find this post helpful:
+- https://learnr.wordpress.com/2010/01/26/ggplot2-quick-heatmap-plotting/
+- Melt the original table to make a long format before visualization using `geom_tile()`
+
+Remember, your programming skills will improve as much as you struggle and 
+put effort in them.
+
+The correct result should look like this:
+![Step 4 Line Graph](data/week3hw2.PNG)
+
+```{r, "Step 5"}
+# Write your code below.
+print(ggplot(meltedAir, aes(x=Date, y=variable)) +
+  geom_tile(aes(fill = value), colour = "white") +
+  scale_fill_gradient2(low = "white", mid = "purple", high = "blue", midpoint = 150))
+  
+  
+  scale_fill_gradient(low = "white", high = "purple")
+
+```
+
+# Step 6: Look at all the data via a scatter chart
+
+Create a scatter chart, with:
+ - the x-axis representing the `Wind`
+ - the y-axis representing the `Temp`
+ - the size of each dot representing the `Ozone`
+ - the color representing `Solar.R`
+
+```{r, "Step 6"}
+# Write your code below.
+print(ggplot(air, aes(x = Wind, y = Temp))+
+      geom_point(aes(size = Ozone, color = Solar.R)))
+
+print(ggplot(air, aes(x=Solar.R, y = Ozone))+
+        geom_point()+
+        geom_smooth(method = "lm"))
+print(ggplot(air, aes(x=Temp, y = Ozone))+
+        geom_point()+
+        geom_smooth(method = "lm"))
+print(ggplot(air, aes(x=Wind, y = Ozone))+
+        geom_point()+
+        geom_smooth(method = "lm"))
+
+```
+
+# Step 7: Final analysis
+### You MUST answer to these questions in your compiled file.
+
+Do you see any patterns after exploring the data?
+
+> Step 3 analysis: The histograms helped me understand how the data was laid out. Based on > the boxplot of wind~ozone, it is plausible to say there is a correlation between ozone
+> and wind. The graph shows that when ozone levels are low, wind speeds may be high.
+
+> Step 4 analysis: The graph with all 4 lines shows a similar relationship to the boxplot.
+> Ozone and wind tend to work in opposition of eachother. In addition, it seems that 
+> temperature may have an effect on ozone. Cold days (seen on either end) have lower ozone,
+> but not "greater" levels of wind. Colder days with less wind have less ozone then 
+> hotter days with more wind. 
+
+> Step 5 analysis: June through September see higher temperatures and higher solar 
+> radiation. They also have more ozone. Solar radiation varies a lot and seems to have
+> little effect on ozone levels. Main correlations are seen by temp and wind level.
+
+> Step 6 analysis: Low temp and high wind (a cool atmosphere) has less ozone.Solar 
+> radiation has a positive correlation, but much less than wind and temperature.
+
+
+What was the most useful visualization?
+
+> Step 6's scatter plot is the most useful. If I was handed any of the other ones I would
+> have more trouble finding the correlations. The scatter plot efficiently displays
+> the correlations. 
