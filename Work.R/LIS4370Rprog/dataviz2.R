@@ -1,9 +1,12 @@
-
+library(GGally)
+library(ggplot2)
 library(tidyverse)
 library(scales)
 
+og <- mtcars
+
 # Create a column for car names
-data <- mtcars %>% 
+data <- og %>% 
   mutate(car_name = rownames(mtcars)) %>%
   arrange(-mpg)
   
@@ -42,7 +45,4 @@ ggplot(mtcars_long, aes(attribute, car_name, )) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
 
 
-
-
-
-
+ggpairs(og, columns = c("mpg", "cyl", "disp", "hp", "wt"))
