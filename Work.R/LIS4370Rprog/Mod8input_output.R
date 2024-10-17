@@ -19,7 +19,7 @@ means <- Student %>%
   group_by(Sex) %>%
   summarise(across(c(Age, Grade), mean))
 
-write.xlsx(means, "C:\\Users\\dtafm\\OneDrive\\Desktop\\data.science\\R\\Work.R\\lis4370\\daniel.R\\week8\\week8xlsx")
+write.table(means,"C:\\Users\\dtafm\\OneDrive\\Desktop\\data.science\\R\\Work.R\\lis4370\\daniel.R\\week8\\week8means",sep=",")
 
 # Step 2)
 
