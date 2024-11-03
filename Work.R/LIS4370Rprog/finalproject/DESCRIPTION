@@ -1,13 +1,13 @@
 Package: MLviz
 Type: Package
-Title: Machine Learning vizualization tool
-Version: 0.1.0
+Title: Machine Learning Vizualization Tool
+Version: 0.0.0.9000
 Author: Daniel Tafmizi
 Maintainer: dtafmizi@gmail.com
-Description: A no-nosense dependent library that 
+Description: A no-nosense library that 
     provides tools and proven techniques for 
     training and visualizing machine learning
     models in the R ecosystem.
-License: What license is it under?
+License: GNU GPLv3
 Encoding: UTF-8
 LazyData: true
