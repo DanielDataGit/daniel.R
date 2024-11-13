@@ -1,0 +1,39 @@
+---
+title: "mod12rmd"
+author: "Daniel Tafmizi"
+output: html_document
+date: "2024-11-12"
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+fit <- lm(mpg ~ hp, data=mtcars)
+kable(anova(fit))
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r, dpi=400, echo=FALSE, out.width="600px"}
+par(mar=c(5,5,2,2))
+palette(rainbow(3))
+with(mtcars,plot(hp, mpg, pch=21, 
+                 xlab="Horse power",
+                 ylab="Miles per gallon",
+                 bg=as.factor(gear), cex=1.2))
+legend("topright", levels(as.factor(mtcars$gear)), pch=21, pt.bg=palette(),
+       title="Gears")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
