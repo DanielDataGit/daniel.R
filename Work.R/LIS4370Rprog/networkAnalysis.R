@@ -25,7 +25,6 @@
   #add document variable
   x <- x %>% mutate(document = row_number())
   
-  
   #tokenize the text
   words <- x %>%
     unnest_tokens(word, text) 
@@ -34,10 +33,6 @@
   co_occurrences <- words %>%
     pairwise_count(word, document, sort = TRUE, upper = FALSE)
   
-  # Assign colors based on whether a node is connected to "trump"
-  node_colors <- ifelse(1:length(V(graph)) %in% connected_nodes, "red", "lightblue")
-  
-  # Visualize the network using ggnet2
   ggnet2(graph,
          color = "lightblue",  # Node color
          size = 10,  # Node size
