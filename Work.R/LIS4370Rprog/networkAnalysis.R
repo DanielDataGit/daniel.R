@@ -32,6 +32,10 @@
   #find co-occurences
   co_occurrences <- words %>%
     pairwise_count(word, document, sort = TRUE, upper = FALSE)
+
+  graphdata <- subset(co_occurrences, n >= 54)  
+  graph <- graph_from_data_frame(graphdata, directed = FALSE)
+  
   
   ggnet2(graph,
          color = "lightblue",  # Node color
