@@ -2,7 +2,6 @@ library(ggplot2)
 library(gganimate)
 library(readxl)
 library(tidyverse)
-library(viridisLite)
 library(ggrepel)
 
 data <- read_excel("lis4317finalproj\\exchangedata.xlsx")
