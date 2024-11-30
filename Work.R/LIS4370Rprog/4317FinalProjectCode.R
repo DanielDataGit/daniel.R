@@ -2,7 +2,9 @@ library(ggplot2)
 library(gganimate)
 library(readxl)
 library(tidyverse)
+library(viridisLite)
 library(ggrepel)
+library(ggthemes)
 
 data <- read_excel("lis4317finalproj\\exchangedata.xlsx")
 
@@ -56,23 +58,23 @@ widevalues <- cleanedSubWide[, 3:22]
 widevalues <- as.data.frame(t(widevalues))
 
 #calculate column wise cumulative differences as percentages
-cumulative_percent_change <- widevalues %>%
+percentChangedf <- widevalues %>%
        mutate(across(everything(), ~ c(0, cumsum(diff(.x) / .x[-length(.x)] * 100)), .names = "cumulative_percent_{col}"))
 
 #subset cumulative columns
-cumulative_percent_change <- cumulative_percent_change[, 20:38]
-colnames(cumulative_percent_change) <- names
+percentChangedf <- percentChangedf[, 20:38]
+colnames(percentChangedf) <- names
 
 #pivot longer for ggplot
-cumulative_percent_change <- pivot_longer(
-          cumulative_percent_change,
+percentChangedf <- pivot_longer(
+          percentChangedf,
           cols = everything(),  
           names_to = "exchange",       
           values_to = "value"      
          )
  
 # add year column
-cumulative_percent_change$year <- rep(2004:2023, each = 19)
+percentChangedf$year <- rep(2004:2023, each = 19)
 
 #Repeat previous steps to add listed company sum to the df. 
 cleanedSubWideCompany <- pivot_wider(cleanedSub, id_cols = c(Name, Region), names_from = Year, values_from = Company)
@@ -89,40 +91,48 @@ cleanedSubWideCompany <- pivot_longer(
            names_to = "exchange",      
            values_to = "value"      
          )
-cumulative_percent_change$companies <- cleanedSubWideCompany$value
+percentChangedf$companies <- cleanedSubWideCompany$value
 
 # use left join to link name to region
-colnames(cumulative_percent_change)[1] <- "Name"
-cleanedSub_unique <- cleanedSub %>%
+colnames(percentChangedf)[1] <- "Name"
+nameJoin <- cleanedSub %>%
       distinct(Name, Region)
 
-cumulative_percent_change <- cumulative_percent_change %>%
-        left_join(cleanedSub_unique, by = "Name")
+percentChangedf <- percentChangedf %>%
+        left_join(nameJoin, by = "Name")
 
 # summarize avg change by summing each region for each year and dividing by exchanges in that region
-region_summary <- cumulative_percent_change %>%
+sumRegion <- percentChangedf %>%
        group_by(Region, year) %>%
        summarize(
-            total_change = sum(value),
-            num_exchanges = n(),
-            avg_change = total_change / num_exchanges,
+            capChange = sum(value),
+            compChange = sum(companies),
+            numExchanges = n(),
+            capAvgChange = capChange / numExchanges,
+            compAvgChange = compChange/numExchanges,
             .groups = "drop"
           )
+# order region
+sumRegion$Region <- factor(sumRegion$Region, levels = c("Asia - Pacific", "Europe - Africa - Middle East", "Americas"))
 
 # region graph
-ggplot(region_summary, aes(year, avg_change, group = Region, color = Region)) +
+ggplot(sumRegion, aes(year, capAvgChange, group = Region, color = Region)) +
   geom_line() +
   geom_point(aes(group = seq_along(year))) + 
   scale_color_manual(values = c("#FF0000", "#008000", "#FFD700")) +
   transition_reveal(year) +
   view_follow(fixed_x = TRUE) +
-  labs(title = "Percent Change for Region (Exchanges with Market Cap > $1 Trillion): 2004 - 2023", x = "Year", y = "Percent Change",
-                caption = "Data retrieved from World-Exchanges.org Statistics Portal")+
+  labs(title = "Percent Change for Region (Exchanges with Market Cap > $1 Trillion): 2004 - 2023",
+       x = "Year", y = "Percent Change", caption = "Data retrieved from World-Exchanges.org Statistics Portal")+
   theme_minimal() +
-  theme(plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = .5)) 
+  theme(plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = .5, size = 10),
+        plot.margin = margin( l = 30, unit = "pt"))
 
-# exchange graph. 
-ggplot(cumulative_percent_change, aes(year, value, group = Name, color = Name)) +
+
+anim_save("C:\\Users\\dtafm\\OneDrive\\Desktop\\data.science\\R\\Work.R\\lis4370\\daniel.R\\lis4317finalproj\\regionAnimation.gif")
+
+# exchange graph. http://127.0.0.1:29105/graphics/plot_zoom_png?width=990&height=358
+ggplot(percentChangedf, aes(year, value, group = Name, color = Name)) +
         geom_line() +
         geom_point(aes(group = seq_along(year))) +
         scale_color_manual(values = c(
@@ -151,6 +161,21 @@ ggplot(cumulative_percent_change, aes(year, value, group = Name, color = Name)) 
     theme_minimal() +
     theme(plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = .5)) 
 
+percentChangedf$Name <- reorder(percentChangedf$Name, percentChangedf$value, FUN = max)
+
+ggplot(percentChangedf, aes(factor(Name), value)) +
+  theme_clean() +
+  geom_tufteboxplot(outlier.colour="transparent", aes(color = factor(Region)),  size = 3) + 
+  scale_color_manual(values = c( "#FFD700", "#FF0000", "#008000")) +
+  labs(title = "Percent Change for Stock Exchanges (Market Cap > $1 Trillion): 2004 - 2023", x = "Exchange Name", y = "Percent Change",
+       caption = "Data retrieved from World-Exchanges.org Statistics Portal", color = "Region")+
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = .5)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), legend.position = "bottom", 
+        plot.margin = margin( l = 55, unit = "pt"))
+
+
+
 # preprocess data for market cap scatterplot
 data2 <- read_excel("lis4317finalproj\\exchangedata.xlsx")
 data2 <- data2[-(753:nrow(data2)),]
@@ -174,5 +199,3 @@ ggplot(scatter, aes(YTD.y, Value.x, color = as.factor(Region.x))) +
                        caption = "Data retrieved from World-Exchanges.org Statistics Portal", color = "Region")+
          theme_minimal() +
          theme(plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = .5, vjust = 1), plot.title.position = "panel") 
-
-
