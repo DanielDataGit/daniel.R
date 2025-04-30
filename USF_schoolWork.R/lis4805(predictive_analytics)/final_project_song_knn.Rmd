@@ -1,0 +1,317 @@
+---
+title: "Final Project"
+author: "Alina Hagen, Daniel Tafmizi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+``` {r}
+# YOU DONT NEED TO RUN THIS -- KEEPING THIS SECTION FOR BOOKEEPING PURPOSES
+library(readr)
+library(tidyverse)
+library(dbplyr)
+songs <- read_csv("enchonest_2.csv")
+songs_2 <- as.data.frame(read_csv("hit_songs_09_19.csv"))
+songs_3 <- read_csv("echonest_3.csv")
+
+deduped_songs <- songs %>%
+  arrange(desc(popularity)) %>% 
+  distinct(artists, track_name, .keep_all = TRUE) %>%
+  select(artists, track_name, duration_ms, popularity, danceability, energy, key, loudness, mode, speechiness, acousticness,instrumentalness, liveness, valence, tempo)
+
+songs_2 <- songs_2 %>%
+  select(artist, song, duration_ms, popularity, danceability, energy, key, loudness, mode, speechiness, acousticness,instrumentalness, liveness, valence, tempo)
+
+deduped_songs2 <- songs_3 %>%
+  arrange(desc(popularity)) %>% 
+  mutate(
+    artist = str_remove_all(artists, "\\[|\\]|'"),   
+    artist = str_trim(artist),
+    track_genre = NA) %>%
+  distinct(artists, name, .keep_all = TRUE) %>%
+  select(artist, name, duration_ms, popularity, danceability, energy, key, loudness, mode, speechiness, acousticness,instrumentalness, liveness, valence, tempo)
+
+colnames(deduped_songs2) <- c("artists", "track_name", "duration_ms", "popularity", "danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness","instrumentalness", "liveness", "valence", "tempo")
+
+colnames(songs_2) <- c("artists", "track_name", "duration_ms", "popularity", "danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness","instrumentalness", "liveness", "valence", "tempo")
+
+df_new_only <- anti_join(deduped_songs2, songs_2)
+df_combined <- bind_rows(songs_2, df_new_only)
+df_new_only2 <- anti_join(deduped_songs, df_combined)
+df_combined <- bind_rows(df_combined, df_new_only2)
+
+
+df_combined <- df_combined %>% arrange(desc(popularity)) %>% filter(popularity >50) %>% distinct(artists, track_name, .keep_all = TRUE) %>% distinct(duration_ms, track_name, .keep_all = TRUE) 
+
+write.csv(df_combined, "df_combined.csv")
+
+```
+
+
+``` {r}
+library(readr)
+library(tidyverse)
+library(dbplyr)
+
+df_combined <- read_csv('C:\\Users\\dtafm\\OneDrive\\Desktop\\data.science\\R\\Work.R\\lis4805\\finalProject\\combined_songs.csv')
+
+ # extract song names
+song_name <- df_combined[,(1:2)]
+# Set all as numeric
+songs <- df_combined[c(-1,-2,-3)]
+songs[] <- lapply(songs, function(x) as.numeric(as.character(x)))
+```
+
+
+``` {r} 
+which(df_combined$track_name == "Another Love")
+```
+
+
+``` {r}
+if (!require(FNN)) {
+  install.packages("FNN") 
+  library(FNN)
+}
+
+library(FNN)
+
+# 1. Scale data
+songs_scaled <- scale(songs)
+
+# 2. Pick point
+query_point <- songs_scaled[34, , drop = FALSE]
+
+# 3. Find 5 nearest neighbors to point (Report will include the song+5 nearest neighbors so k = 6)
+knn_result <- get.knnx(data = songs_scaled, query = query_point, k = 6)
+
+# 4. Inspect the neighbor indices and distances
+neighbor_indices <- knn_result$nn.index[]
+neighbor_distances <- knn_result$nn.dist[]
+
+# 5. Show actual neighbor rows
+neighbors_data <- song_name[neighbor_indices[1, ], ]
+
+# Print everything
+cat("Nearest neighbors (indices):\n")
+print(neighbor_indices)
+
+cat("\nEuclidian Distances:\n")
+print(neighbor_distances)
+
+cat("\nNeighbor data:\n")
+print(neighbors_data)
+```
+
+
+``` {r}
+# K Clustering and Knn Model version
+library(FNN)
+library(tidyverse)
+library(reshape2)
+set.seed(42)
+
+# 1. Scale data
+songs_scaled <- scale(songs)
+
+sampled_df <- songs %>% slice_sample(prop = 0.10)
+sample <- scale(sampled_df)
+
+############################################################
+## OPTIMAL K ANALYSIS VIA DERIVIATION AND ELBOW DETECTION ##
+############################################################
+
+# Compute WSS valus
+wss <- map_dbl(1:10,  function(k){
+  model <- kmeans(x = sample, centers = k, nstart = 50, iter.max = 100)
+  model$tot.withinss
+})
+
+# Emulate Deriviation Logic with a Descrete function using diff()
+# Compute first and second differences
+first_deriv <- diff(wss)
+second_deriv <- diff(first_deriv)
+
+# Calculate the highest second derivative (sharpest elbow)
+elbow_k <- which.max(abs(second_deriv)) + 1
+cat("Optimal k (via second derivative):", elbow_k, "\n")
+
+# Elbow Plot
+plot(1:10, wss, type = "b", pch = 19, 
+     main = "WSS vs. K with Elbow Estimation via Deriviation Logic",
+     xlab = "Number of Clusters (k)", ylab = "WSS")
+abline(v = elbow_k, col = "red", lty = 2)
+text(elbow_k, wss[elbow_k], labels = paste0("k=", elbow_k), pos = 4, col = "red")
+
+#############################################
+## K MEANS CLUSTERING WITH OPTIMAL K VALUE ##
+#############################################
+
+kmeans_result <- kmeans(songs_scaled, centers = elbow_k)
+
+# Reshape Data to long formt via reshape2
+centers_df <- as.data.frame(kmeans_result$centers)
+centers_df$cluster <- rownames(centers_df)
+centers_long <- pivot_longer(centers_df, -cluster, names_to = "feature", values_to = "value")
+
+# Visualize Cluster Difference Analysis
+ggplot(centers_long, aes(x = feature, y = value, group = cluster, color = cluster)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Cluster Centroid Feature Values", y = "Scaled Value")
+
+##################################################
+## K NEAREST NEIGHBOR WITHIN DETERMINED CLUSTER ##
+##################################################
+
+# Pick a Point
+query_index <- 34
+
+# Identify query's cluster and all songs in that cluster
+query_cluster <- kmeans_result$cluster[query_index]
+cluster_indices <- which(kmeans_result$cluster == query_cluster)
+
+# Subset cluster data
+cluster_songs <- songs_scaled[cluster_indices, , drop = FALSE]
+cluster_song_names <- song_name[cluster_indices, ]
+
+# Get the query song within the cluster
+relative_query_index <- match(query_index, cluster_indices)
+query_cluster_point <- cluster_songs[relative_query_index, , drop = FALSE]
+
+# 5 nearest neighbors (Report will include the song+5 nearest neighbors so k = 6)
+knn_result <- get.knnx(data = cluster_songs, query = query_cluster_point, k = 6)
+
+# Neighbor Results 
+neighbor_indices <- knn_result$nn.index[1, ]
+neighbor_distances <- knn_result$nn.dist[1, ]
+neighbors_data <- cluster_song_names[neighbor_indices, ]
+
+
+####################
+## RESULTS REPORT ##
+####################
+
+cat("Nearest neighbors (indices):\n")
+print(neighbor_indices)
+
+cat("\nEuclidian Distances:\n")
+print(neighbor_distances)
+
+cat("\nNeighbor data:\n")
+print(neighbors_data)
+```
+
+``` {r}
+library(GGally)
+# Convert to data frame and add cluster
+plot_df <- as.data.frame(songs_scaled) %>%
+  mutate(cluster = factor(kmeans_result$cluster))
+
+# Select the features you want to include
+metrics <- c("popularity", "danceability", "energy", "loudness", "valence")
+
+# Generate the pairplot matrix
+ggpairs(
+  plot_df,
+  columns = which(colnames(plot_df) %in% metrics),
+  aes(color = cluster, alpha = 0.6),
+  upper = list(continuous = wrap("points", size = 0.7)),
+  lower = list(continuous = wrap("points", size = 0.7)),
+  diag = list(continuous = wrap("densityDiag"))
+) +
+  theme_minimal()
+
+```
+
+``` {r, include = FALSE}
+library(spotifyr)
+
+# Authenticate (client credentials is fine)
+Sys.setenv(SPOTIFY_CLIENT_ID = '5b83c7fe870042b492a35d75da13680a')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = '4c27d19dfdec4b0085838cd0f87fd867')
+Sys.setenv(SPOTIFY_REDIRECT_URI = "http://127.0.0.1:1410/")
+```
+
+``` {r}
+library(stringr)
+library(tidyverse)
+lookup_list <- neighbors_data %>%
+  mutate(combined = str_c(artists, track_name, sep = " "))
+
+liked <- lookup_list[1,]
+lookup_list <- lookup_list[-1,]
+
+```
+
+``` {r, results='asis'}
+access_token <- get_spotify_access_token()
+
+lookup_list$spotify_url <- NA
+
+for (i in seq_along(lookup_list$combined)) {
+  query <- lookup_list$combined[i]
+
+  result <- tryCatch({
+    search_spotify(query, type = "track", limit = 1, market = "US")
+  }, error = function(e) NULL)
+
+  if (!is.null(result) && nrow(result) > 0) {
+    lookup_list$spotify_url[i] <- result$external_urls.spotify[1]
+  }
+}
+
+recommendations <- paste0(
+  'Try "', lookup_list$track_name, '" by ', lookup_list$artists,
+  ' [Spotify link](', lookup_list$spotify_url, ')', "\n \n \n"
+)
+
+name <- ""  
+name <- paste0(name, liked[1,2])
+artist <- ""  
+artist <- paste0(artist, liked[1,1])
+
+cat("Since you liked", name, "by", artist, "\n\n",
+  recommendations)
+
+```
+
+```{r}
+library(tidyverse)
+
+tracknames <- data.frame(df_combined$...1, df_combined$track_name)
+colnames(tracknames)[1] <- "...1"
+song_name <- left_join(tracknames, song_name, by = "...1")
+
+# 1. Attach cluster labels to the scaled song data
+songs_scaled_df <- as.data.frame(songs_scaled)
+songs_scaled_df$cluster <- kmeans_result$cluster
+
+# 2. Extract the two clusters
+cluster1_data <- songs_scaled_df %>% filter(cluster == 1) %>% select(-cluster)
+cluster2_data <- songs_scaled_df %>% filter(cluster == 2) %>% select(-cluster)
+
+write.csv(cluster1_data, "cluster1.csv", row.names = FALSE)
+write.csv(cluster2_data, "cluster2.csv", row.names = FALSE)
+
+# 5. Save the corresponding song names
+song_name_cluster1 <- song_name[kmeans_result$cluster == 1, ]
+colnames(song_name_cluster1) <- c("id", "track_name", "artists")
+
+song_name_cluster2 <- song_name[kmeans_result$cluster == 2, ]
+colnames(song_name_cluster2) <- c("id", "track_name", "artists")
+
+# Combine artist and track_name
+song_name_cluster1$full_name <- paste(song_name_cluster1$track_name, song_name_cluster1$artists,  sep = " - ")
+song_name_cluster2 $full_name <- paste(song_name_cluster2$track_name,song_name_cluster2$artists,  sep = " - ")
+
+song_name_cluster1 <- song_name_cluster1[,-2:-3]
+song_name_cluster2 <- song_name_cluster2[,-2:-3]
+
+
+write.csv(song_name_cluster1, "song_name_cluster1.csv", row.names = FALSE)
+write.csv(song_name_cluster2, "song_name_cluster2.csv", row.names = FALSE)
+
+```
