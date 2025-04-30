@@ -115,8 +115,8 @@ server <- function(input, output, session) {
   selection_made <- reactiveVal(FALSE)
   knn_done <- reactiveVal(FALSE)
   
-  client_id <- '5b83c7fe870042b492a35d75da13680a'
-  client_secret <- '4c27d19dfdec4b0085838cd0f87fd867'
+  client_id <- ''
+  client_secret <- ''
   
   access_token <- get_spotify_access_token(client_id, client_secret)
   token_reactive(access_token)
